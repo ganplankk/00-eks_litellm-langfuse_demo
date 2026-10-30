@@ -1,0 +1,234 @@
+langfuse:
+  image:
+    tag: "4.70.1"
+    pullPolicy: IfNotPresent
+
+  # The chart creates it; the Pod Identity association (langfuse/langfuse) grants S3.
+  serviceAccount:
+    create: true
+    name: langfuse
+
+  salt:
+    secretKeyRef:
+      name: langfuse-runtime
+      key: salt
+
+  encryptionKey:
+    secretKeyRef:
+      name: langfuse-runtime
+      key: encryptionKey
+
+  nextauth:
+    url: "https://langfuse.ganplank.com"
+    secret:
+      secretKeyRef:
+        name: langfuse-runtime
+        key: nextauthSecret
+  # ALB Ingress 설정
+  ingress:
+    enabled: true
+
+    className: alb
+
+    annotations:
+      alb.ingress.kubernetes.io/load-balancer-name: aws-ue1-langfuse-alb
+      alb.ingress.kubernetes.io/scheme: internet-facing
+      alb.ingress.kubernetes.io/ip-address-type: ipv4
+      alb.ingress.kubernetes.io/target-type: ip
+
+      alb.ingress.kubernetes.io/subnets: "aws-ue1-sbn-pub-az2-1a,aws-ue1-sbn-pub-az6-1c"
+      alb.ingress.kubernetes.io/inbound-cidrs: "101.2.200.98/32"
+
+      alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80},{"HTTPS":443}]'
+      alb.ingress.kubernetes.io/ssl-redirect: "443"
+      alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:us-east-1:762491855071:certificate/71ee3871-603e-4141-ba6a-3e38b9dbd6bf"
+
+      alb.ingress.kubernetes.io/backend-protocol: HTTP
+      alb.ingress.kubernetes.io/healthcheck-protocol: HTTP
+      alb.ingress.kubernetes.io/healthcheck-path: /api/public/ready
+      alb.ingress.kubernetes.io/success-codes: "200"
+
+    hosts:
+      - host: langfuse.ganplank.com
+        paths:
+          - path: /
+            pathType: Prefix
+
+    # HTTPS 인증서는 ACM에서 ALB에 연결합니다.
+    # Kubernetes TLS Secret을 사용하는 설정은 비활성화합니다.
+    tls:
+      enabled: false
+
+  deployment:
+    strategy:
+      type: Recreate
+
+  # additionalEnv:
+  #   - name: LANGFUSE_OTEL_HOST
+  #     value: "http://langfuse-web.langfuse.svc.cluster.local:3000"    
+
+  web:
+    replicas: 1
+    service:
+      type: ClusterIP
+      port: 3000
+    resources:
+      requests:
+        cpu: "1"
+        memory: 4Gi
+      limits:
+        cpu: "2"
+        memory: 4Gi
+    livenessProbe:
+      initialDelaySeconds: 600
+      failureThreshold: 6
+
+  worker:
+    replicas: 1
+    resources:
+      requests:
+        cpu: "1"
+        memory: 4Gi
+      limits:
+        cpu: "2"
+        memory: 4Gi
+    livenessProbe:
+      initialDelaySeconds: 120
+      failureThreshold: 12
+
+postgresql:
+  deploy: false
+  host: litellm-lab-db.c5e2seegow9n.us-east-1.rds.amazonaws.com
+  port: 5432
+  args: "sslmode=require&connection_limit=5&pool_timeout=30"
+  auth:
+    username: langfuse_app
+    database: langfuse
+    existingSecret: langfuse-runtime
+    secretKeys:
+      userPasswordKey: dbPasswordUrlEncoded
+  migration:
+    autoMigrate: true
+
+clickhouse:
+  deploy: true
+  auth:
+    username: default
+    existingSecret: langfuse-runtime
+    existingSecretKey: clickhousePassword
+
+  cluster:
+    enabled: true
+    replicas: 1
+    image:
+      tag: "26.4"
+    storage:
+      size: 50Gi
+      className: gp3-langfuse
+    resources:
+      requests:
+        cpu: "2"
+        memory: 8Gi
+      limits:
+        cpu: "4"
+        memory: 8Gi
+
+  keeper:
+    enabled: true
+    replicas: 1
+    image:
+      tag: "26.4"
+    storage:
+      size: 5Gi
+      className: gp3-langfuse
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        cpu: "1"
+        memory: 1Gi
+
+redis:
+  deploy: false
+  host: master.aws-ue1-litellm-rediscltr.zwb2gq.use1.cache.amazonaws.com
+  port: 6379
+  tls:
+    enabled: true
+  auth:
+    username: default
+    existingSecret: langfuse-runtime
+    existingSecretPasswordKey: elasticacheRedisPassword   # Secret에 있는 키 이름으로
+    database: 1
+
+s3:
+  deploy: false
+  storageProvider: s3
+  bucket: aws-ue1-langfuse-762491855071
+  region: us-east-1
+  forcePathStyle: false
+
+  eventUpload:
+    prefix: events/
+
+  batchExport:
+    enabled: false
+    prefix: exports/
+
+  mediaUpload:
+    enabled: false
+    prefix: media/
+
+# Rendered verbatim (toYaml, no tpl), so the ESO template below reaches ESO unchanged.
+extraManifests:
+  # EBS gp3 volumes for ClickHouse and Keeper. Retain keeps data if a PVC is deleted.
+  - apiVersion: storage.k8s.io/v1
+    kind: StorageClass
+    metadata:
+      name: gp3-langfuse
+    provisioner: ebs.csi.aws.com
+    parameters:
+      type: gp3
+      encrypted: "true"
+      csi.storage.k8s.io/fstype: ext4
+    reclaimPolicy: Retain
+    allowVolumeExpansion: true
+    volumeBindingMode: WaitForFirstConsumer
+
+  # ESO reads Secrets Manager with the eso-role (Pod Identity); no auth block needed.
+  - apiVersion: external-secrets.io/v1
+    kind: SecretStore
+    metadata:
+      name: langfuse-aws
+    spec:
+      provider:
+        aws:
+          service: SecretsManager
+          region: us-east-1
+
+  - apiVersion: external-secrets.io/v1
+    kind: ExternalSecret
+    metadata:
+      name: langfuse-runtime
+    spec:
+      refreshInterval: 1h
+      secretStoreRef:
+        name: langfuse-aws
+        kind: SecretStore
+      target:
+        name: langfuse-runtime
+        creationPolicy: Owner
+        deletionPolicy: Retain
+        template:
+          engineVersion: v2
+          mergePolicy: Merge
+          data:
+            dbPasswordUrlEncoded: '{{ .dbPassword | urlquery | replace "+" "%20" }}'
+      dataFrom:
+        - extract:
+            key: aws-ue1-langfuse-runtime
+      data:
+        - secretKey: elasticacheRedisPassword
+          remoteRef:
+            key: "arn:aws:secretsmanager:us-east-1:762491855071:secret:aws-ue1-litellm-redis-auth-UUmoM0"
+            property: REDIS_PASSWORD

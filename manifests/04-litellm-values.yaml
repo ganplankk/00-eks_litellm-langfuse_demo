@@ -1,0 +1,349 @@
+# Official chart from the v1.103.3 source tag, pinned to commit ecae261b100cdf6bcb1d024ae69e4efa4a891be0.
+replicaCount: 1
+nameOverride: litellm
+fullnameOverride: litellm
+numWorkers: 1
+image:
+  repository: docker.litellm.ai/berriai/litellm
+  # repository: 762491855071.dkr.ecr.us-east-1.amazonaws.com/litellm
+  tag: "1.103.3"
+  pullPolicy: IfNotPresent
+serviceAccount:
+  create: true
+  name: litellm
+proxyConfigMap:
+  create: true
+  name: litellm-config
+  key: config.yaml
+## LiteLLM Config ##
+proxy_config:
+  model_list:
+    - model_name: claude-sonnet-4-6
+      litellm_params:
+        # model: bedrock/global.anthropic.claude-sonnet-4-6
+        model: bedrock/global.anthropic.claude-sonnet-4-6
+        aws_region_name: os.environ/AWS_REGION
+
+  router_settings:
+    redis_url: os.environ/REDIS_URL
+
+  guardrails:
+    # AWS에 생성한 정책으로 입력 검사·마스킹
+    - guardrail_name: aws-bedrock-guardrail
+      litellm_params:
+        guardrail: my_bedrockguardrail.my_bedrockguardrail
+        mode: pre_call
+
+        guardrailIdentifier: os.environ/AWS_GUARDRAIL_ID
+        guardrailVersion: "DRAFT"
+        aws_region_name: os.environ/AWS_REGION
+        
+        default_on: true
+        mask_request_content: true
+
+  general_settings:
+    master_key: os.environ/LITELLM_MASTER_KEY
+    store_model_in_db: true
+    database_connection_pool_limit: 10
+    # 테스트용: 모든 대역의 X-Forwarded-For를 신뢰. 운영 전 VPC CIDR로 좁힐 것.
+    trusted_proxy_ranges: ["0.0.0.0/0"]
+    use_x_forwarded_for: true
+    
+    # alert to slack
+    alerting:
+    - slack
+
+    alert_types:
+      - llm_exceptions
+      - llm_too_slow
+      - llm_requests_hanging
+
+    # 지연·장시간 처리 알림 기준: 초
+    alerting_threshold: 30
+
+  # Custom callback modules (py/) are mounted next to /etc/litellm/config.yaml.
+  litellm_settings:
+    skip_system_message_in_guardrail: true
+    callbacks:
+      - langfuse_otel
+      - s3_access_logger_handler.handler
+      # - websearch_interception
+      - websearch_tool_choice_handler.handler
+    # websearch_tool_choice_handler.py reads this key from the mounted config.yaml.
+    websearch_interception_params:
+      enabled_providers:
+        - bedrock
+      search_tool_name: tavily-search
+      max_agentic_loops: 10
+
+  search_tools:
+    - search_tool_name: tavily-search
+      litellm_params:
+        search_provider: tavily
+        api_key: os.environ/TAVILY_API_KEY
+
+## LiteLLM Runtime Secrets
+masterkeySecretName: litellm-runtime-secrets
+masterkeySecretKey: LITELLM_MASTER_KEY
+environmentSecrets:
+  - litellm-runtime-secrets
+# ESO builds the encoded DATABASE_URL; disable the chart's URL construction.
+# The migration Job does NOT inherit environmentSecrets, so extraEnvVars is needed.
+db:
+  deployStandalone: false
+  useExisting: false
+redis:
+  enabled: false
+extraEnvVars:
+  - name: DATABASE_URL
+    valueFrom:
+      secretKeyRef:
+        name: litellm-runtime-secrets
+        key: DATABASE_URL
+envVars:
+  SLACK_WEBHOOK_URL: "<webhook_url>"
+  AWS_GUARDRAIL_ID: "j1w2f4r4sz0w"
+  AWS_REGION: us-east-1
+  AWS_DEFAULT_REGION: us-east-1
+  STORE_MODEL_IN_DB: "True"
+  # Image's public CA bundle, so outbound HTTPS such as api.tavily.com verifies.
+  SSL_CERT_FILE: /etc/ssl/certs/ca-certificates.crt
+  AWS_CA_BUNDLE: /certs/public-ca.pem
+volumes:
+  - name: ca
+    configMap:
+      name: litellm-lab-ca
+  # Generated from manifests/01-litellm-prereqs/py by kubectl apply -k.
+  - name: callbacks
+    configMap:
+      name: litellm-callbacks
+volumeMounts:
+  - name: ca
+    mountPath: /certs
+    readOnly: true
+  # LiteLLM resolves "module.handler" relative to the config file directory.
+  - name: callbacks
+    mountPath: /etc/litellm/my_bedrockguardrail.py
+    subPath: my_bedrockguardrail.py
+    readOnly: true
+  - name: callbacks
+    mountPath: /etc/litellm/s3_access_logger_handler.py
+    subPath: s3_access_logger_handler.py
+    readOnly: true
+  - name: callbacks
+    mountPath: /etc/litellm/websearch_tool_choice_handler.py
+    subPath: websearch_tool_choice_handler.py
+    readOnly: true
+strategy:
+  type: Recreate
+resources:
+  requests:
+    cpu: "1"
+    memory: 4Gi
+  limits:
+    cpu: "2"
+    memory: 4Gi
+autoscaling:
+  enabled: false
+keda:
+  enabled: false
+collector:
+  enabled: false
+metricsServer:
+  enabled: false
+billingMetrics:
+  enabled: false
+pdb:
+  enabled: false
+serviceMonitor:
+  enabled: false
+service:
+  type: ClusterIP
+  port: 4000
+ingress:
+  enabled: true
+  className: alb
+  annotations:
+    alb.ingress.kubernetes.io/load-balancer-name: aws-ue1-litellm-alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/ip-address-type: ipv4
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/inbound-cidrs: "101.2.200.98/32"
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80},{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:us-east-1:762491855071:certificate/71ee3871-603e-4141-ba6a-3e38b9dbd6bf"
+    alb.ingress.kubernetes.io/backend-protocol: HTTP
+    alb.ingress.kubernetes.io/healthcheck-protocol: HTTP
+    alb.ingress.kubernetes.io/healthcheck-port: traffic-port
+    alb.ingress.kubernetes.io/healthcheck-path: /health/readiness
+    alb.ingress.kubernetes.io/success-codes: "200"
+  # The chart ignores per-path backends and always routes to litellm:4000,
+  # so a "/" -> "/ui" redirect action cannot be expressed here.
+  hosts:
+    - host: litellm.ganplank.com
+      paths:
+        - path: /
+          pathType: Prefix
+  # ACM terminates HTTPS at the ALB; no Kubernetes TLS Secret is used.
+  # The dashboard is available at /ui; all paths go to the LiteLLM service.
+  tls: []
+migrationJob:
+  enabled: true
+  # serviceAccountName is left unset: the hook runs before the chart creates the
+  # "litellm" ServiceAccount, so the chart falls back to "default". Prisma needs no AWS role.
+  backoffLimit: 0
+  activeDeadlineSeconds: 300
+  ttlSecondsAfterFinished: 600
+  hooks:
+    argocd:
+      enabled: false
+    helm:
+      enabled: true
+      weight: "1"
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      memory: 2Gi
+
+## Extra resources managed by this release ##
+extraResources:
+  # Creates the litellm database if missing. Hook weight 0 runs it before the
+  # migration hook (weight 1); Helm waits for it and stops the upgrade on failure.
+  - apiVersion: batch/v1
+    kind: Job
+    metadata:
+      name: litellm-db-init
+      annotations:
+        helm.sh/hook: pre-install,pre-upgrade
+        helm.sh/hook-weight: "0"
+        helm.sh/hook-delete-policy: before-hook-creation
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 180
+      ttlSecondsAfterFinished: 600
+      template:
+        spec:
+          restartPolicy: Never
+          automountServiceAccountToken: false
+          volumes:
+            - name: ca
+              configMap:
+                name: litellm-lab-ca
+          containers:
+            - name: create-database
+              image: postgres:16.15-bookworm
+              env:
+                - name: PGHOST
+                  value: litellm-lab-db.c5e2seegow9n.us-east-1.rds.amazonaws.com
+                - name: PGDATABASE
+                  value: postgres
+                - name: PGUSER
+                  valueFrom:
+                    secretKeyRef:
+                      name: litellm-backend-secrets
+                      key: POSTGRES_USER
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: litellm-backend-secrets
+                      key: POSTGRES_PASSWORD
+                - name: PGSSLMODE
+                  value: verify-full
+                - name: PGSSLROOTCERT
+                  value: /certs/rds-ca.pem
+                - name: PGCONNECT_TIMEOUT
+                  value: "5"
+              volumeMounts:
+                - name: ca
+                  mountPath: /certs
+                  readOnly: true
+              command: ["sh", "-ec"]
+              args:
+                - |
+                  psql -X -w -v ON_ERROR_STOP=1 <<'SQL'
+                  SELECT 'CREATE DATABASE litellm'
+                  WHERE NOT EXISTS (
+                    SELECT 1 FROM pg_database WHERE datname = 'litellm'
+                  )
+                  \gexec
+                  SELECT datname, pg_get_userbyid(datdba) AS owner
+                  FROM pg_database WHERE datname = 'litellm';
+                  SQL
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  memory: 256Mi
+
+  # helm test litellm -n litellm --filter name=litellm-smoke-test --logs
+  # Checks the Pod Identity role, readiness and one real Bedrock call (billed).
+  - apiVersion: v1
+    kind: Pod
+    metadata:
+      name: litellm-smoke-test
+      annotations:
+        helm.sh/hook: test
+        helm.sh/hook-delete-policy: before-hook-creation
+    spec:
+      serviceAccountName: litellm
+      restartPolicy: Never
+      containers:
+        - name: smoke
+          image: docker.litellm.ai/berriai/litellm:1.103.3
+          command: ["python", "-c"]
+          args:
+            - |
+              import json
+              import os
+              import sys
+              import urllib.error
+              import urllib.request
+
+              import boto3
+
+              base = "http://litellm:4000"
+              principal = boto3.client("sts").get_caller_identity()["Arn"]
+              print("AWS principal:", principal)
+              if ":assumed-role/aws-ue1-litellm-app-role/" not in principal:
+                  sys.exit("Unexpected AWS role. Check the litellm Pod Identity association.")
+              with urllib.request.urlopen(base + "/health/readiness", timeout=15) as response:
+                  print("/health/readiness", response.status)
+
+              payload = {
+                  "model": "claude-sonnet-4-6",
+                  "messages": [{"role": "user", "content": "Reply with: EKS connection OK"}],
+                  "max_tokens": 32,
+              }
+              request = urllib.request.Request(
+                  base + "/v1/chat/completions",
+                  data=json.dumps(payload).encode(),
+                  headers={
+                      "Content-Type": "application/json",
+                      "Authorization": "Bearer " + os.environ["LITELLM_MASTER_KEY"],
+                  },
+              )
+              try:
+                  with urllib.request.urlopen(request, timeout=120) as response:
+                      print(json.dumps(json.load(response), ensure_ascii=False, indent=2))
+              except urllib.error.HTTPError as error:
+                  print("HTTP", error.code)
+                  print(error.read().decode(errors="replace"))
+                  sys.exit(1)
+          env:
+            - name: LITELLM_MASTER_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: litellm-runtime-secrets
+                  key: LITELLM_MASTER_KEY
+            - name: AWS_REGION
+              value: us-east-1
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 512Mi
+

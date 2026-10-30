@@ -1,0 +1,34 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "UseSonnet46GlobalProfile",
+      "Effect": "Allow",
+      "Action": [
+        "bedrock:InvokeModel",
+        "bedrock:InvokeModelWithResponseStream",
+        "bedrock:GetInferenceProfile"
+      ],
+      "Resource": [
+        "arn:aws:bedrock:us-east-1:762491855071:inference-profile/global.anthropic.claude-sonnet-4-6*"
+      ]
+    },
+    {
+      "Sid": "InvokeSonnet46ThroughProfile",
+      "Effect": "Allow",
+      "Action": [
+        "bedrock:InvokeModel",
+        "bedrock:InvokeModelWithResponseStream"
+      ],
+      "Resource": [
+        "arn:aws:bedrock:*::foundation-model/anthropic.claude-sonnet-4-6*"
+      ],
+      "Condition": {
+        "StringLike": {
+          "bedrock:InferenceProfileArn": "arn:aws:bedrock:us-east-1:762491855071:inference-profile/global.anthropic.claude-sonnet-4-6*"
+        }
+      }
+    }
+  ]
+}
+

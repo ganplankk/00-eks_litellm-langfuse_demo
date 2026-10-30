@@ -1,0 +1,26 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "WriteLiteLLMLogs",
+      "Effect": "Allow",
+      "Action": "s3:PutObject",
+      "Resource": "arn:aws:s3:::s3-litellm-hsbang/litellm/request-logs/*"
+    },
+    {
+      "Sid": "ReadLogBucketLocation",
+      "Effect": "Allow",
+      "Action": "s3:GetBucketLocation",
+      "Resource": "arn:aws:s3:::s3-litellm-hsbang"
+    },
+    {
+      "Sid": "ApplyLiteLLMGuardrail",
+      "Effect": "Allow",
+      "Action": "bedrock:ApplyGuardrail",
+      "Resource": [
+        "arn:aws:bedrock:us-east-1:762491855071:guardrail/j1w2f4r4sz0w",
+        "arn:aws:bedrock:*:762491855071:guardrail-profile/us.guardrail.v1:0"
+      ]
+    }
+  ]
+}

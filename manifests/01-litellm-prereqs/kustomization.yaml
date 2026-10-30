@@ -1,0 +1,28 @@
+# Resources the LiteLLM Helm hooks need before the release exists.
+# Apply: kubectl apply --server-side -k manifests/01-litellm-prereqs
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: litellm
+
+resources:
+  - secretstore.yaml
+  - backend-secrets.yaml
+  - runtime-secrets.yaml
+
+# 04-litellm-values.yaml mounts these by fixed name, so no hash suffix.
+generatorOptions:
+  disableNameSuffixHash: true
+
+configMapGenerator:
+  # Mounted at /certs by the LiteLLM Pod and both hook Jobs.
+  - name: litellm-lab-ca
+    files:
+      - certs/rds-ca.pem
+      - certs/public-ca.pem
+  # Custom callbacks and guardrail, mounted next to /etc/litellm/config.yaml.
+  - name: litellm-callbacks
+    files:
+      - py/my_bedrockguardrail.py
+      - py/s3_access_logger_handler.py
+      - py/websearch_tool_choice_handler.py
+      - py/guardrail_error_handler.py

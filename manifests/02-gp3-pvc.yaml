@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ebs-smoke
+  namespace: langfuse
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: gp3-langfuse
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ebs-smoke
+  namespace: langfuse
+spec:
+  restartPolicy: Never
+  containers:
+    - name: check
+      image: public.ecr.aws/docker/library/busybox:1.37.0
+      command:
+        - sh
+        - -c
+        - echo ebs-csi-ok > /data/check.txt && cat /data/check.txt
+      resources:
+        requests:
+          cpu: 10m
+          memory: 16Mi
+        limits:
+          cpu: 100m
+          memory: 32Mi
+      volumeMounts:
+        - name: data
+          mountPath: /data
+  volumes:
+    - name: data
+      persistentVolumeClaim:
+        claimName: ebs-smoke
