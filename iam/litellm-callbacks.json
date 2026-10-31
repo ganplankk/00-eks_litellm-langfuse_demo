@@ -5,21 +5,21 @@
       "Sid": "WriteLiteLLMLogs",
       "Effect": "Allow",
       "Action": "s3:PutObject",
-      "Resource": "arn:aws:s3:::s3-litellm-hsbang/litellm/request-logs/*"
+      "Resource": "arn:aws:s3:::__LOG_BUCKET__/litellm/request-logs/*"
     },
     {
       "Sid": "ReadLogBucketLocation",
       "Effect": "Allow",
       "Action": "s3:GetBucketLocation",
-      "Resource": "arn:aws:s3:::s3-litellm-hsbang"
+      "Resource": "arn:aws:s3:::__LOG_BUCKET__"
     },
     {
       "Sid": "ApplyLiteLLMGuardrail",
       "Effect": "Allow",
       "Action": "bedrock:ApplyGuardrail",
       "Resource": [
-        "arn:aws:bedrock:us-east-1:762491855071:guardrail/j1w2f4r4sz0w",
-        "arn:aws:bedrock:*:762491855071:guardrail-profile/us.guardrail.v1:0"
+        "arn:aws:bedrock:us-east-1:__AWS_ACCOUNT_ID__:guardrail/__GUARDRAIL_ID__",
+        "arn:aws:bedrock:*:__AWS_ACCOUNT_ID__:guardrail-profile/us.guardrail.v1:0"
       ]
     }
   ]

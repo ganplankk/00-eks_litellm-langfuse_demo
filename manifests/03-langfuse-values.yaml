@@ -19,7 +19,7 @@ langfuse:
       key: encryptionKey
 
   nextauth:
-    url: "https://langfuse.ganplank.com"
+    url: "https://__LANGFUSE_HOST__"
     secret:
       secretKeyRef:
         name: langfuse-runtime
@@ -36,12 +36,12 @@ langfuse:
       alb.ingress.kubernetes.io/ip-address-type: ipv4
       alb.ingress.kubernetes.io/target-type: ip
 
-      alb.ingress.kubernetes.io/subnets: "aws-ue1-sbn-pub-az2-1a,aws-ue1-sbn-pub-az6-1c"
-      alb.ingress.kubernetes.io/inbound-cidrs: "101.2.200.98/32"
+      alb.ingress.kubernetes.io/subnets: "__PUBLIC_SUBNETS__"
+      alb.ingress.kubernetes.io/inbound-cidrs: "__ALLOWED_CIDR__"
 
       alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80},{"HTTPS":443}]'
       alb.ingress.kubernetes.io/ssl-redirect: "443"
-      alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:us-east-1:762491855071:certificate/71ee3871-603e-4141-ba6a-3e38b9dbd6bf"
+      alb.ingress.kubernetes.io/certificate-arn: "__ACM_CERT_ARN__"
 
       alb.ingress.kubernetes.io/backend-protocol: HTTP
       alb.ingress.kubernetes.io/healthcheck-protocol: HTTP
@@ -49,7 +49,7 @@ langfuse:
       alb.ingress.kubernetes.io/success-codes: "200"
 
     hosts:
-      - host: langfuse.ganplank.com
+      - host: __LANGFUSE_HOST__
         paths:
           - path: /
             pathType: Prefix
@@ -98,7 +98,7 @@ langfuse:
 
 postgresql:
   deploy: false
-  host: litellm-lab-db.c5e2seegow9n.us-east-1.rds.amazonaws.com
+  host: __RDS_ENDPOINT__
   port: 5432
   args: "sslmode=require&connection_limit=5&pool_timeout=30"
   auth:
@@ -151,7 +151,7 @@ clickhouse:
 
 redis:
   deploy: false
-  host: master.aws-ue1-litellm-rediscltr.zwb2gq.use1.cache.amazonaws.com
+  host: __REDIS_ENDPOINT__
   port: 6379
   tls:
     enabled: true
@@ -164,7 +164,7 @@ redis:
 s3:
   deploy: false
   storageProvider: s3
-  bucket: aws-ue1-langfuse-762491855071
+  bucket: __LANGFUSE_BUCKET__
   region: us-east-1
   forcePathStyle: false
 
@@ -230,5 +230,5 @@ extraManifests:
       data:
         - secretKey: elasticacheRedisPassword
           remoteRef:
-            key: "arn:aws:secretsmanager:us-east-1:762491855071:secret:aws-ue1-litellm-redis-auth-UUmoM0"
+            key: "__REDIS_SECRET_ARN__"
             property: REDIS_PASSWORD

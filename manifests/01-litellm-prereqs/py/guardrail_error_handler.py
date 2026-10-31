@@ -84,7 +84,7 @@ class GuardrailErrorHandler(CustomLogger):
 
 
 handler = GuardrailErrorHandler(
-    s3_bucket_name="s3-litellm-hsbang",
+    s3_bucket_name="__LOG_BUCKET__",
     s3_region_name=os.getenv("AWS_REGION", "us-east-1"),
     s3_path="litellm/request-logs"
 )

@@ -1,0 +1,10 @@
+.vendor/
+rendered.yaml
+*.env
+__pycache__/
+langfuse-tls/
+# Self-signed CA and server key pairs; never commit private keys.
+ganplank-tls/
+*.key
+# Per-environment copy with real values (see docs guide, step 3); never commit.
+build/

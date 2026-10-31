@@ -4,6 +4,7 @@
 > 리전: `us-east-1` 고정
 > 콘솔 화면이 있는 단계(Secrets Manager, EKS, IAM, Pod Identity)는 AWS 콘솔에서 하고, 나머지는 터미널에 복사·붙여넣기로 진행합니다.
 > 구성 설명과 설계 근거는 [reference/EKS(LITELLM+LANGFUSE)-full.md](<reference/EKS(LITELLM+LANGFUSE)-full.md>)에 있습니다.
+> LiteLLM이 요청을 처리하는 순서와 `proxy_config` 설정 설명은 [LITELLM-PROXY.md](LITELLM-PROXY.md)에 있습니다.
 
 ![architecture](images/architecture.png)
 

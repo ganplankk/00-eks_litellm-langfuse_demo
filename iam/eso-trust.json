@@ -1,0 +1,22 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "pods.eks.amazonaws.com"
+      },
+      "Action": [
+        "sts:AssumeRole",
+        "sts:TagSession"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestTag/eks-cluster-arn": "arn:aws:eks:us-east-1:__AWS_ACCOUNT_ID__:cluster/aws-ue1-litellm-eks",
+          "aws:RequestTag/kubernetes-namespace": "external-secrets",
+          "aws:RequestTag/kubernetes-service-account": "external-secrets"
+        }
+      }
+    }
+  ]
+}

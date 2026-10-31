@@ -10,7 +10,7 @@
         "bedrock:GetInferenceProfile"
       ],
       "Resource": [
-        "arn:aws:bedrock:us-east-1:762491855071:inference-profile/global.anthropic.claude-sonnet-4-6*"
+        "arn:aws:bedrock:us-east-1:__AWS_ACCOUNT_ID__:inference-profile/global.anthropic.claude-sonnet-4-6*"
       ]
     },
     {
@@ -25,7 +25,7 @@
       ],
       "Condition": {
         "StringLike": {
-          "bedrock:InferenceProfileArn": "arn:aws:bedrock:us-east-1:762491855071:inference-profile/global.anthropic.claude-sonnet-4-6*"
+          "bedrock:InferenceProfileArn": "arn:aws:bedrock:us-east-1:__AWS_ACCOUNT_ID__:inference-profile/global.anthropic.claude-sonnet-4-6*"
         }
       }
     }

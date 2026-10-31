@@ -12,7 +12,7 @@
       ],
       "Condition": {
         "StringEquals": {
-          "aws:RequestTag/eks-cluster-arn": "arn:aws:eks:us-east-1:762491855071:cluster/aws-ue1-litellm-eks",
+          "aws:RequestTag/eks-cluster-arn": "arn:aws:eks:us-east-1:__AWS_ACCOUNT_ID__:cluster/aws-ue1-litellm-eks",
           "aws:RequestTag/kubernetes-namespace": "litellm",
           "aws:RequestTag/kubernetes-service-account": "litellm"
         }

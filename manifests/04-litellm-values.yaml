@@ -5,7 +5,7 @@ fullnameOverride: litellm
 numWorkers: 1
 image:
   repository: docker.litellm.ai/berriai/litellm
-  # repository: 762491855071.dkr.ecr.us-east-1.amazonaws.com/litellm
+  # repository: __AWS_ACCOUNT_ID__.dkr.ecr.us-east-1.amazonaws.com/litellm
   tag: "1.103.3"
   pullPolicy: IfNotPresent
 serviceAccount:
@@ -102,7 +102,7 @@ extraEnvVars:
         key: DATABASE_URL
 envVars:
   SLACK_WEBHOOK_URL: "<webhook_url>"
-  AWS_GUARDRAIL_ID: "j1w2f4r4sz0w"
+  AWS_GUARDRAIL_ID: "__GUARDRAIL_ID__"
   AWS_REGION: us-east-1
   AWS_DEFAULT_REGION: us-east-1
   STORE_MODEL_IN_DB: "True"
@@ -168,10 +168,10 @@ ingress:
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/ip-address-type: ipv4
     alb.ingress.kubernetes.io/target-type: ip
-    alb.ingress.kubernetes.io/inbound-cidrs: "101.2.200.98/32"
+    alb.ingress.kubernetes.io/inbound-cidrs: "__ALLOWED_CIDR__"
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80},{"HTTPS":443}]'
     alb.ingress.kubernetes.io/ssl-redirect: "443"
-    alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:us-east-1:762491855071:certificate/71ee3871-603e-4141-ba6a-3e38b9dbd6bf"
+    alb.ingress.kubernetes.io/certificate-arn: "__ACM_CERT_ARN__"
     alb.ingress.kubernetes.io/backend-protocol: HTTP
     alb.ingress.kubernetes.io/healthcheck-protocol: HTTP
     alb.ingress.kubernetes.io/healthcheck-port: traffic-port
@@ -180,7 +180,7 @@ ingress:
   # The chart ignores per-path backends and always routes to litellm:4000,
   # so a "/" -> "/ui" redirect action cannot be expressed here.
   hosts:
-    - host: litellm.ganplank.com
+    - host: __LITELLM_HOST__
       paths:
         - path: /
           pathType: Prefix
@@ -236,7 +236,7 @@ extraResources:
               image: postgres:16.15-bookworm
               env:
                 - name: PGHOST
-                  value: litellm-lab-db.c5e2seegow9n.us-east-1.rds.amazonaws.com
+                  value: __RDS_ENDPOINT__
                 - name: PGDATABASE
                   value: postgres
                 - name: PGUSER
